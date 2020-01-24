@@ -96,7 +96,6 @@ main(int argc, char* argv[])
       int size = FileStat.st_size;
       printf("size : %ld \n" , size);
       
-      printf("address of filestat : 0x%x , st_size : 0x%x",(int)&FileStat , (int)&FileStat.st_size);
 
       char read_buf_final[size];
       size = read(InputFD , read_buf_final , size);
