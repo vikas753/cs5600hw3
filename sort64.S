@@ -135,6 +135,9 @@ main:
     idiv %rcx
     mov %rax , %r14
 
+    /* rdx : Number of bytes to be read back into the array */
+    mov 48(%rsp) , %rdx
+   
     /* Allocate space for maximum number of integers
        and align the stack pointer */
     sub 48(%rsp), %rsp
@@ -143,8 +146,9 @@ main:
     not %r10
     and %r10, %rsp
 
-    /* Read the file into buffer at %rsp */
-    mov %r11 , %rdx
+    /* Read the file into buffer at %rsp 
+       rdx : number of bytes of buffer is initiated
+       in preceding calls */
     lea 0(%rsp) , %rsi
     mov %r9 , %rdi
     mov $0 , %rax   
@@ -154,7 +158,7 @@ main:
        then there was an error in reading */
     cmp $0 , %rax  
     jle .badFileReadLabel
-    
+   
     /* Closing the Input file post the preceding open call rightaway */
     mov %r9 , %rdi
     mov $3 , %rax
@@ -278,4 +282,4 @@ bad_file            : .string "Incorrect File passed for open\n"
 badfile_read        : .string "Incorrect File was passed to be read\n" 
 stat_fail           : .string "Syscall stat fails to read properties\n"
 incorrect_size_text : .string "Incorrect size of array for insertion sort\n"
-
+test_fmt            : .string "size:%ld\n"
