@@ -6,14 +6,6 @@
 #include <fcntl.h>
 #include <stdlib.h>
 
-// Api - code source : rewrote from the class notes of Nat tuck
-int
-length(char* text)
-{
-    char* z;
-    for (z = text; *z; ++z);
-    return z - text;
-}
 
 /* Swap the pointer values of two number */
 void swap(int * a , int * b)
@@ -30,7 +22,7 @@ void swap(int * a , int * b)
    elements */
 void insertionSort(int integer_array[] , int size)
 {
-  if(size > 1)
+  if(size >= 1)
   {	  
     for(int j=1;j<size;j++)
     {
@@ -50,7 +42,7 @@ void insertionSort(int integer_array[] , int size)
   {
    // Api code source : rewrote the code from notes of nat tuck	  
     char* usage = "Invalid length of array  \n";
-    int rv = write(STD_OUT_CODE , usage, length(usage));
+    int rv = write(STD_OUT_CODE , usage, strlen(usage));
     if (rv < 0) {
         // Checking your syscall return values is a
         // really good idea.
@@ -66,7 +58,7 @@ void insertionSort(int integer_array[] , int size)
 int UsageWrite()
 {
     char* usage = "Usage: ./sort input output \n";
-    int rv = write(STD_OUT_CODE , usage, length(usage));
+    int rv = write(STD_OUT_CODE , usage, strlen(usage));
     if (rv < 0) {
         // Checking your syscall return values is a
         // really good idea.
@@ -83,23 +75,22 @@ main(int argc, char* argv[])
     {
       UsageWrite();	    
     }
-    
-    printf("argv1 : %s\n" , argv[1]);
-    
+      
+    // Open the input file , check for any irregularities 
     int InputFD = open(argv[1],O_RDONLY);
     
-    // read the file and obtain the size using stat syscall
     if(InputFD)
     {
+     // read the file and obtain the size using stat syscall
       struct stat FileStat;
       stat(argv[1] , &FileStat);
       int size = FileStat.st_size;
-      printf("size : %ld \n" , size);
       
+      // read the dat file and populate the integer array as is
+      int IntegerArray[size>>2];
+      size = read(InputFD , (char*)&IntegerArray , size);
 
-      char read_buf_final[size];
-      size = read(InputFD , read_buf_final , size);
-
+      // Only way to check whether read was fine is to see the size to be non-negative
       if(size == -1)
       {
         close(InputFD);     
@@ -108,42 +99,22 @@ main(int argc, char* argv[])
         _exit(1);      
       }
 
-#define MAX_CHARS_LINE 255
-      
-      // Process the charachter text and convert into an integer array 
-      // by striping newline charachters
-      int start_offset = 0;
-      int IntegerArray[size >> 1];
-      int IntegerArrayIterator = 0;
-      for(int i=0;i<size;i++)
-      {      
-        if(read_buf_final[i] == '\n')
-	{
-          read_buf_final[i] = '\0';		
-          IntegerArray[IntegerArrayIterator] = atoi((char*)&read_buf_final[start_offset]); 		
-	  start_offset = i+1;
-	  IntegerArrayIterator++; 
-	}
-      }
-      // Output buffer is sized as 5*number_of_integers to
-      // have ample space to store the processed output data      
-      int sizeArray = IntegerArrayIterator;
-      char output_buffer[32*sizeArray];
-
+      // Sort the Integer Array using insertion sorting technique
+      int sizeArray = size >> 2;
       insertionSort(IntegerArray , sizeArray);
-      int bufferIterator = 0;
-      for(int i=0;i<sizeArray;i++)
-      {
-	int buffer_size = sprintf((char*)&output_buffer[bufferIterator] , "%ld\n" , IntegerArray[i]);
-	bufferIterator=bufferIterator+buffer_size;
-      }
 
-      // Open and write the processed output to the file
-      int OutputFD = open(argv[2] , O_WRONLY); 
+      // Program doesnt know whether file exists or not , so better
+      // to create it and open it if it doesnt
+      int flags = O_WRONLY | O_CREAT;
+        
+      // Open and write the unprocessed raw output to the file
+      // 0644 : Suitable permission bits set for linux
+      int OutputFD = open(argv[2] , flags , 0644); 
        
       if(OutputFD)
       {
-        int resultWrite = write(OutputFD , output_buffer , bufferIterator);
+	// Write the data using write syscall as below
+        int resultWrite = write(OutputFD , (char*)&IntegerArray , size);
         if(resultWrite == -1)
         {
           close(InputFD);
@@ -170,5 +141,5 @@ main(int argc, char* argv[])
 
     close(InputFD);
         
-    return 2;
+    return 0;
 }

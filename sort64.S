@@ -6,8 +6,8 @@
    rdi : array location
    r9  : Outer loop iterator ( i )
    r10 : Inner loop iterator ( j )
-   r11 : Temporary ith value for swapping
-   rbx : Temporary value to avoid excessive memory references 
+   ecx : Temporary ith value for swapping
+   ebx : Temporary value to avoid excessive memory references 
    
 */
 
@@ -19,7 +19,7 @@ insertion_sort:
     push %r11
     push %rbx
     cmp $1 , %rsi
-    jle .incorrectSizePassed
+    jl .incorrectSizePassed
     mov $1 , %r9            /* Initialize outer loop iterator */
 .OuterLoopEpilogue:
     cmp %rsi , %r9
@@ -29,16 +29,16 @@ insertion_sort:
     mov %r9 , %r10         /* Initialize inner loop iterator */
 .InnerloopBody:
    /* Compare the ith value with it's previous value*/
-    mov -8(%rdi,%r10,8) , %rbx
-    cmp %rbx , (%rdi,%r10,8)
+    mov -4(%rdi,%r10,4) , %ebx
+    cmp %ebx , (%rdi,%r10,4)
     jl .swapAndExtendInnerLoop
     jmp .OuterLoopPrologue
 .swapAndExtendInnerLoop:
     /* Swap ith value with previous value */
-    mov -8(%rdi,%r10,8) , %r11
-    mov (%rdi,%r10,8) , %rbx   
-    mov %rbx ,-8(%rdi,%r10,8)
-    mov %r11 , (%rdi,%r10,8)
+    mov -4(%rdi,%r10,4) , %ecx
+    mov (%rdi,%r10,4) , %ebx   
+    mov %ebx ,-4(%rdi,%r10,4)
+    mov %ecx , (%rdi,%r10,4)
     dec %r10
     cmp $0 , %r10
     jne .InnerloopBody
@@ -47,6 +47,8 @@ insertion_sort:
     jmp .OuterLoopEpilogue
 
 .incorrectSizePassed:
+    /* Check for size of array passed if less than 1 , then
+       sorting technique wont work  */
     mov $incorrect_size_text , %rdi
     call strlen
     
@@ -55,6 +57,12 @@ insertion_sort:
     mov %rax , %rdx
     mov $1 , %rax     /*syscall 1 is write */
     syscall
+    
+    /* perform an exit from the program */
+    mov $0 , %rdi
+    mov $60 , %rax
+    syscall    
+
 .endProgramInsSort:
     pop %rbx
     pop %r11
@@ -64,16 +72,14 @@ insertion_sort:
     ret
 
 /* variable mapping
-  rbx     : argc , Integer array , Output buffer
+  rbx     : argc , Integer array 
   rdi     : argv[1]
   rcx     : Integer Array
-  r9      : InputFD
-  0(%rsp) : FileStat
+  r9      : Input file descriptor as well as output file descriptor
+  0(%rsp) : FileStat , Integer Array buffer
   48(%rsp): Filestat.size
-  r11 : size of file
-  r13 : File descriptor number
-  r12 : read_buf_final array
-  r14 : Integer Array Iterator
+  r15     : size of file in bytes
+  r14     : Number of integers
 */
 
 
@@ -89,16 +95,21 @@ main:
     push %r13
     push %r14
     push %r15
+    
+    /* pushing 9 registers in above code leads to unaligned stack
+       (p)adding 24 bytes aligns the same */
+    add $24 , %rsp
 
+    /* make a copy of argv[1] and argv[2] to be used later */
     mov 8(%rsi) , %rbx
     mov 16(%rsi) , %r13
 
     cmp $3 , %rdi
     jne .usageLabel
-    mov 8(%rsi) , %rdi   /* Input file name */
-    mov $0, %rsi    
-    mov $0, %rdx      
-    mov $2, %rax      /* syscall 2 is open */
+    mov 8(%rsi) , %rdi   /* Input file name argument */
+    mov $0, %rsi         /* O_RDONLY flag is set */
+    mov $0, %rdx         /* Dont care about permission bits */
+    mov $2, %rax         /* syscall 2 is open */
     syscall
 
     /* r9 : fd of input file opening */
@@ -107,22 +118,24 @@ main:
 
     jle .badFileOpening
 
+    /* Perform a stat syscall below that would populate the datastructure 
+       with file properties like file size in bytes */
     mov %rsp , %rsi
     mov $4 , %rax
     syscall          /* Stat Syscall to return file size */
 
     cmp $0 , %rax   /* Check for validity of file properties in stat syscall */
     jne .incorrectFileProperties
-
-    mov 48(%rsp) , %r11  /* retain or stash - size of file */
-    mov %r11 , -20(%rbp)
-    mov %r11 , %r12
-    imul $6 , %r12
-    mov %r12 , 48(%rsp)  /* 6 x size of file , would be sufficient to hold
-                            file contents and integer array in future */
+    mov 48(%rsp) , %r15
     
+    mov %r15 , %rax
+    
+    /* Input file is assmumed to be a .bin or .dat containing integers of 4bytes       each thus , file size by 4 would give number of integers */
+    mov $4 , %rcx
+    idiv %rcx
+    mov %rax , %r14
+
     /* Allocate space for maximum number of integers
-       + contents of file
        and align the stack pointer */
     sub 48(%rsp), %rsp
     lea 0(%rsp), %r12     
@@ -142,121 +155,22 @@ main:
     cmp $0 , %rax  
     jle .badFileReadLabel
     
-    mov %rax , %r11
-
     /* Closing the Input file post the preceding open call rightaway */
     mov %r9 , %rdi
     mov $3 , %rax
     syscall    
 
     /* %rbx : integer array */
-    mov %r11 , %rbx
-    add %rsp , %rbx
+    lea 0(%rsp) , %rbx
 
-    mov $0 , %r10  /*Initiate start offset */
-    mov %rsp , %r12 /* read_buf_final array */     
-    mov $0 , %r14 /* Integer Array Iterator */    
-    mov $0 , %r15 /* int i */
-
-.loopCheck:
-    cmp %r11 , %r15
-
-/* for loop used for processing charachters to an 
-   integer array */
-    jl .loopBody
-    jmp .loopExit
-.loopBody:
-    mov (%r12,%r15,1) , %al
-    cmp $'\n' , %al
-    je .makeAnIntegerEntry
-    inc %r15
-    jmp .loopCheck
-.makeAnIntegerEntry:
-    /* Feed atoi with charachter string till newline and
-       processed output would be an integer to be made to array */
-    lea  (%r12,%r10,1) , %rdi
-    push %r10
-    push %r11
-    call atoi
-    pop %r11
-    pop %r10
-    mov %rax , (%rbx,%r14,8)
-    inc %r15
-    mov %r15 , %r10
-    inc %r14
-    jmp .loopCheck
-
-.loopExit:
-    mov $0 , %r15
-    
-/* Perform insertion sort on integer array obtained above */
+    /* Perform insertion sort on integer array obtained above */
     mov %r14 , %rsi
     mov %rbx , %rdi
-    push %rbx
     call insertion_sort   
-    pop %rbx
-    mov %rbx , %rcx
-    mov %r14 , %r9
-/* Size of output buffer which would be used to hold output file contents */
-    imul $4 , %r14
-
-/* Allocate the size as calculated above on stack and align the
-stack pointer */ 
-    sub %r14 , %rsp
-    lea 0(%rsp), %r12     
-    mov $15, %r10
-    not %r10
-    and %r10, %rsp
-
-/* Move the stack pointer to r15 */
-    mov %rsp , %r15
-
-/* Initialize output buffer iterator */
-    mov $0 , %r10
-
-/* Initialize output buffer size variable */
-    mov $0 , %r11   
-
-.OutputBufferLoopPrologue:
-    cmp %r9 , %r10
-    jl .OutputBufferLoopBody
-    jmp .OutputBufferLoopEnd
-.OutputBufferLoopBody:
-    /* Use sprintf to implement a string of integers 
-       of integer array and route them to a charachter 
-       buffer */
-    mov (%rcx,%r10,8) , %rdx
-    mov $output_buffer_fmt , %rsi
-    lea (%r15,%r11,1) , %rdi
-    
-    /* There are many safe registers below , but we still
-       save and restore them to avoid clobbering */
-    push %rcx
-    push %r11
-    push %r10
-    push %r15
-    push %r9
-    mov $0 , %al
-    call sprintf
-    pop %r9
-    pop %r15
-    pop %r10
-    pop %r11
-    pop %rcx
-
-    add %rax , %r11      
-    inc %r10
-    jmp .OutputBufferLoopPrologue
-.OutputBufferLoopEnd:
-        
-    mov %r13 , %rsi
-    mov $output_buffer_test_fmt , %rdi
-    mov $0 , %al
-    call printf
    
     mov %r13 , %rdi   /* Output file name */
-    mov $1, %rsi    
-    mov $0, %rdx      
+    mov $65, %rsi     /* Create a file in write only mode */
+    mov $0644, %rdx   /* 644 : gives write permission in linux */   
     mov $2, %rax      /* syscall 2 is open */
     syscall
 
@@ -266,37 +180,22 @@ stack pointer */
     /* Check for any inconsistencies in output file opening */
     jle .badFileOpening
     
-    /* format the integer array data and pack them into a string */
-    mov %r15 , %rdi
-    mov $output_buffer_test_fmt , %rsi
-    mov %r15 , %rdx
-    mov $0 , %al
-    push %r9
-    call sprintf
-    pop %r9
-
-    mov %r15 , %rdi
-    call strlen
    
-  /* Route the data from the buffer to output file */
-    mov %r9 , %rdi
-    mov %r15 , %rsi
-    mov %rax , %rdx
+    /* Route the data from the buffer to output file */
+    mov %r9  , %rdi
+    mov %rbx , %rsi
+    mov %r15 , %rdx
     mov $1 , %rax     /* Syscall 1 is write */
     syscall
-
-    mov %rax , %rsi
-    mov $output_buffer_fmt , %rdi
-    mov $0 , %al
-    call printf
 
     /* Close the file that was opened for writing in preceding call */
     mov %r9 , %rdi
     mov $3 , %rax
     syscall    
-
     jmp .endProgram
+
 .usageLabel:
+    /* Perform an usage text message to STDOUT */
     mov $usage_text , %rdi
     call strlen
     
@@ -305,8 +204,14 @@ stack pointer */
     mov %rax , %rdx
     mov $1 , %rax     /*syscall 1 is write */
     syscall
-    jmp .endProgram
+   
+    /* perform an exit from the program */
+    mov $1 , %rdi
+    mov $60 , %rax
+    syscall    
+     
 .badFileReadLabel:
+    /* Perform a bad file read message to STDOUT */
     mov $badfile_read , %rdi
     call strlen
     
@@ -315,8 +220,14 @@ stack pointer */
     mov %rax , %rdx
     mov $1 , %rax     /*syscall 1 is write */
     syscall
-    jmp .endProgram
+ 
+    /* perform an exit from the program */
+    mov $1 , %rdi
+    mov $60 , %rax
+    syscall    
+
 .incorrectFileProperties:
+    /* Any failure in stat syscall message is routed to STDOUT */
     mov $stat_fail , %rdi
     call strlen
     
@@ -325,8 +236,14 @@ stack pointer */
     mov %rax , %rdx
     mov $1 , %rax     /*syscall 1 is write */
     syscall
-    jmp .endProgram
+ 
+    /* perform an exit from the program */
+    mov $1 , %rdi
+    mov $60 , %rax
+    syscall    
+
 .badFileOpening:
+    /* Perform a bad file open message to STDOUT */
     mov $bad_file , %rdi
     call strlen
     
@@ -335,6 +252,12 @@ stack pointer */
     mov %rax , %rdx
     mov $1 , %rax
     syscall
+
+    /* perform an exit from the program */
+    mov $1 , %rdi
+    mov $60 , %rax
+    syscall    
+
 .endProgram:  
     pop %r15
     pop %r14
@@ -345,53 +268,14 @@ stack pointer */
     pop %r9
     pop %rcx
     pop %rbx
-
+    mov $0 , %rax
     leave
     ret
 
  .data
-usage_text : .string "./sort InputFile OutputFile \n"
-bad_file   : .string " Incorrect File passed for open \n"
-badfile_read : .string " Incorrect File was passed to be read \n " 
-test_fmt   : .string " vikasv : %ld \n"
-stat_fail  : .string " Syscall stat fails to read properties \n "
-incorrect_size_text : .string " Incorrect size of array for insertion sort \n "
-output_buffer_test_fmt : .string "%s \n"
-output_buffer_fmt      : .string "%ld\n"
+usage_text          : .string "Usage: ./sort64 InputFile OutputFile\n"
+bad_file            : .string "Incorrect File passed for open\n"
+badfile_read        : .string "Incorrect File was passed to be read\n" 
+stat_fail           : .string "Syscall stat fails to read properties\n"
+incorrect_size_text : .string "Incorrect size of array for insertion sort\n"
 
-#if 0  /* C reference code below */
-/* Program to perform an insertion sort on an array of 
-   elements */
-void insertionSort(int integer_array[] , int size)
-{
-  if(size > 1)
-  {	  
-    for(int j=1;j<size;j++)
-    {
-      int i=j;	  
-      while(integer_array[i] < integer_array[i-1])
-      {
-        swap(&integer_array[i] , &integer_array[i-1]);
-        i--;
-        if(i == 0)
-        {
-	  break;
-        }	
-      }
-    }    
-  }
-  else
-  {
-   // Api code source : rewrote the code from notes of nat tuck	  
-    char* usage = "Invalid length of array  \n";
-    int rv = write(STD_OUT_CODE , usage, length(usage));
-    if (rv < 0) {
-        // Checking your syscall return values is a
-        // really good idea.
-        perror("Insertion sort");
-    }
-    _exit(1);
-     
-  }  
-}
-#endif
