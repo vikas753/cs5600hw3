@@ -85,18 +85,19 @@ insertion_sort:
 /* variable mapping
    ecx : Input File Descriptor Number
    ebx : argv
-   16(%ebp) : file name
-   20(%ebp) : file descriptor number
-   24(%ebp) : file size in bytes
-   28(%ebp) : Number of integers in file  
-   32(%ebp) : Output file descriptor number
+  -16(%ebp) : file name
+  -20(%ebp) : file descriptor number
+  -24(%ebp) : file size in bytes
+  -28(%ebp) : Number of integers in file  
+  -32(%ebp) : Output file descriptor number
+  -36(%ebp) : Integer Array Base Pointer Address
 */
 
     .text
 main:
     /* We are allocating 256 bytes overhead on stack to store stat
        data structure and important local variables going forward */
-    enter $256, $0
+    enter $288, $0
     /* Below registers are used throughout program hence are 
        push onto stack will be pop during exit */
     push %ebx
@@ -111,7 +112,7 @@ main:
     
     /* Input file 1 is 4(%ebx) */
     mov 4(%ebx) , %eax   # argv[1] : %eax
-    mov %eax , 16(%ebp)  /* backup the filename onto a location on stack */
+    mov %eax , -16(%ebp)  /* backup the filename onto a location on stack */
     
     mov %eax , %ebx      /* Input file name argument */
     mov $0, %ecx         /* O_RDONLY flag is set */
@@ -124,10 +125,10 @@ main:
     cmp $0 , %eax
     jle .badFileOpening
     
-    mov %eax , 20(%ebp)     /* Make a backup of input file descriptor number at                                20(%ebp) */
+    mov %eax ,-20(%ebp)     /* Make a backup of input file descriptor number at                                20(%ebp) */
     mov %esp , %ecx         /* Reroute the file stat properties to this data 
                            structure*/
-    mov 16(%ebp) , %ebx     /* File name argument hasnt changed since last funct                               ion call */
+    mov -16(%ebp) , %ebx     /* File name argument hasnt changed since last funct                               ion call */
     mov $106 , %eax
     int $0x80
  
@@ -136,7 +137,7 @@ main:
 
     /* Stash the backup of file size onto 24(%ebp) location */
     mov 20(%esp) , %ecx
-    mov %ecx , 24(%ebp) 
+    mov %ecx , -24(%ebp) 
 
     /* Divide the file size by 4 to obtain the number of integers and stash 
        them onto 28(%ebp) */
@@ -145,11 +146,11 @@ main:
     mov $4 , %ebx
     idiv %ebx
     
-    mov %eax , 28(%ebp)
+    mov %eax , -28(%ebp)
     
     /* Allocate the buffer of same size as of Input data file 
        onto stack and align it at a 16 bit boundary as below */
-    mov 24(%ebp) , %ecx
+    mov -24(%ebp) , %ecx
     sub %ecx , %esp
 
     mov $15 , %edx
@@ -158,9 +159,10 @@ main:
 
     /* Perform the read of entire Input data file onto the locally 
        allocated stack buffer */
-    mov 20(%ebp) , %ebx     /* File descriptor number     */
+    mov -20(%ebp) , %ebx     /* File descriptor number     */
     mov %esp , %ecx         /* Integer array address      */
-    mov 24(%ebp) , %edx     /* Number of bytes to be read */
+    mov %ecx , -36(%ebp)    /* backup of integer array base ptr onto stack */
+    mov -24(%ebp) , %edx     /* Number of bytes to be read */
     mov $3 , %eax
     int $0x80
    
@@ -171,14 +173,14 @@ main:
 
  
     /* Close the file that was open to be read in preceding call */
-    mov 20(%ebp) , %ebx    /* File descriptor number */
+    mov -20(%ebp) , %ebx    /* File descriptor number */
     mov $6 , %eax          /* 6 : close syscall */
     int $0x80
 
     /* Perform insertion assuming 32-bit integers on the buffer 
        that was read */
-    push 28(%ebp)
-    push %esp
+    push -28(%ebp)
+    push -36(%ebp)
     call insertion_sort
 
     /* 12(%ebp) : base pointer to argv array */
@@ -196,13 +198,13 @@ main:
     cmp $0 , %eax        
     jle .badFileOpenWrite
 
-    mov %eax , 32(%ebp)  /* Output file descriptor number */
+    mov %eax , -32(%ebp)  /* Output file descriptor number */
 
     /* Perform the write of entire sorted Integer array data onto the output 
        file */
     mov %eax , %ebx         /* Output File descriptor number  */
-    mov %esp , %ecx         /* Integer array address          */
-    mov 24(%ebp) , %edx     /* Number of bytes to be written  */
+    mov -36(%ebp) , %ecx         /* Integer array address          */
+    mov -24(%ebp) , %edx     /* Number of bytes to be written  */
     mov $4 , %eax           /* Syscall 5 : write              */
     int $0x80
    
@@ -213,7 +215,7 @@ main:
 
   
     /* Close the file that was open to be written in preceding call */
-    mov 32(%ebp) , %ebx    /* File descriptor number */
+    mov -32(%ebp) , %ebx    /* File descriptor number */
     mov $6 , %eax          /* 6 : close syscall */
     int $0x80
     
