@@ -1,3 +1,11 @@
+/*
+  64 bit assembly code for insertion sort technique . 
+  There are many temporary registers used out here for
+  storing local variables rather than pushing them onto
+  stack to avoid latency of memory access and making 
+  the program faster
+*/
+
 
     .global main
 
@@ -14,15 +22,18 @@
     .text
 insertion_sort:
     enter $0 , $0
+    /* Push all the below registers onto stack as 
+       part of callee save convention */
     push %r9
     push %r10
     push %r11
     push %rbx
+
     cmp $1 , %rsi
     jl .incorrectSizePassed
     mov $1 , %r9            /* Initialize outer loop iterator */
 .OuterLoopEpilogue:
-    cmp %rsi , %r9
+    cmp %rsi , %r9         /* Check for outerbounds on outerloop iterator */
     jl  .loopBodyInsSort
     jmp .endProgramInsSort
 .loopBodyInsSort:
@@ -34,7 +45,8 @@ insertion_sort:
     jl .swapAndExtendInnerLoop
     jmp .OuterLoopPrologue
 .swapAndExtendInnerLoop:
-    /* Swap ith value with previous value */
+    /* Swap ith value with previous value
+       and update the state of inner loop iterator */
     mov -4(%rdi,%r10,4) , %ecx
     mov (%rdi,%r10,4) , %ebx   
     mov %ebx ,-4(%rdi,%r10,4)
@@ -43,6 +55,7 @@ insertion_sort:
     cmp $0 , %r10
     jne .InnerloopBody
 .OuterLoopPrologue:
+    /* Update the state of outerloop iterator in prologue */
     inc %r9
     jmp .OuterLoopEpilogue
 
@@ -64,6 +77,8 @@ insertion_sort:
     syscall    
 
 .endProgramInsSort:
+    /* Restore the value of below registers from stack 
+       in prologue */
     pop %rbx
     pop %r11
     pop %r10
@@ -86,6 +101,8 @@ insertion_sort:
 main:
     enter $256, $0       /* 256 bytes is for stat buffer */
 
+    /* Push all the below registers onto stack as 
+       part of callee save convention */ 
     push %rbx
     push %rcx
     push %r9
@@ -186,9 +203,9 @@ main:
     
    
     /* Route the data from the buffer to output file */
-    mov %r9  , %rdi
-    mov %rbx , %rsi
-    mov %r15 , %rdx
+    mov %r9  , %rdi   /* Output file descriptor number */
+    mov %rbx , %rsi   /* Address of the buffer that would be written */
+    mov %r15 , %rdx   /* Number of bytes to be written */
     mov $1 , %rax     /* Syscall 1 is write */
     syscall
 
@@ -263,6 +280,7 @@ main:
     syscall    
 
 .endProgram:  
+   /* Restore the registers from stack */
     pop %r15
     pop %r14
     pop %r13
@@ -282,4 +300,3 @@ bad_file            : .string "Incorrect File passed for open\n"
 badfile_read        : .string "Incorrect File was passed to be read\n" 
 stat_fail           : .string "Syscall stat fails to read properties\n"
 incorrect_size_text : .string "Incorrect size of array for insertion sort\n"
-test_fmt            : .string "size:%ld\n"

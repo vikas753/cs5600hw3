@@ -1,10 +1,15 @@
+/*
+  32 bit assembly code for performing sorting of input numbers
+  It stores the local variables onto stack rather than registers
+  as 32bit arch has very few registers and using them all
+  could lead to spilling . 
+*/
+
     .global main
     .data
 usage_msg              :  .string "Usage: ./sort input output\n"
 bad_file_open_msg      :  .string "File Open Failure !\n"
-test_fmt               :  .string "%ld\n"
 stat_syscall_msg       :  .string "Stat syscall failure to read properties\n"
-string_fmt             :  .string "%s\n"
 readfile_fail_msg      :  .string "File read failure\n"
 badfile_open_write_msg :  .string "Output file failed to open\n"
 writefile_fail_msg     :  .string "File write failure\n"
@@ -21,6 +26,8 @@ incorrect_size_text    :  .string "Incorrect size passed for insertion sort\n"
     .text
 insertion_sort:
     enter $0 , $0
+    /* Push registers onto stack as part of caller save
+       convention */
     push %ecx
     push %ebx
     push %edx
@@ -49,10 +56,12 @@ insertion_sort:
     mov (%ecx,%edx,4) , %edi
     mov %edi ,-4(%ecx,%edx,4)
     mov %esi , (%ecx,%edx,4)
+    /* Update the inner loop iterator and check for any underflow */
     dec %edx
     cmp $0 , %edx
     jne .InnerloopBody
 .OuterLoopPrologue:
+    /* Update the outer loop iterator in epilog */
     inc %ebx
     jmp .OuterLoopEpilogue
 
@@ -125,8 +134,8 @@ main:
     cmp $0 , %eax
     jle .badFileOpening
     
-    mov %eax ,-20(%ebp)     /* Make a backup of input file descriptor number at                                20(%ebp) */
-    mov %esp , %ecx         /* Reroute the file stat properties to this data 
+    mov %eax ,-20(%ebp)      /* Make a backup of input file descriptor number at                                20(%ebp) */
+    mov %esp , %ecx          /* Reroute the file stat properties to this data 
                            structure*/
     mov -16(%ebp) , %ebx     /* File name argument hasnt changed since last funct                               ion call */
     mov $106 , %eax
@@ -160,8 +169,8 @@ main:
     /* Perform the read of entire Input data file onto the locally 
        allocated stack buffer */
     mov -20(%ebp) , %ebx     /* File descriptor number     */
-    mov %esp , %ecx         /* Integer array address      */
-    mov %ecx , -36(%ebp)    /* backup of integer array base ptr onto stack */
+    mov %esp , %ecx          /* Integer array address      */
+    mov %ecx , -36(%ebp)     /* backup of integer array base ptr onto stack */
     mov -24(%ebp) , %edx     /* Number of bytes to be read */
     mov $3 , %eax
     int $0x80
@@ -174,7 +183,7 @@ main:
  
     /* Close the file that was open to be read in preceding call */
     mov -20(%ebp) , %ebx    /* File descriptor number */
-    mov $6 , %eax          /* 6 : close syscall */
+    mov $6 , %eax           /* 6 : close syscall */
     int $0x80
 
     /* Perform insertion assuming 32-bit integers on the buffer 
@@ -189,10 +198,10 @@ main:
     /* Output file -2- is 8(%ebx) */
     mov 8(%ebx) , %eax   # argv[2] : %eax
       
-    mov %eax , %ebx      /* Output file name for routing data */
-    mov $65, %ecx        /* O_WRONLY and O_CREATE flag is set */
+    mov %eax , %ebx       /* Output file name for routing data */
+    mov $65, %ecx         /* O_WRONLY and O_CREATE flag is set */
     mov $0644, %edx       /* Dont care about permission bits */
-    mov $5, %eax         /* syscall 5 is open */
+    mov $5, %eax          /* syscall 5 is open */
     int $0x80
     
     cmp $0 , %eax        
@@ -202,10 +211,10 @@ main:
 
     /* Perform the write of entire sorted Integer array data onto the output 
        file */
-    mov %eax , %ebx         /* Output File descriptor number  */
-    mov -36(%ebp) , %ecx         /* Integer array address          */
-    mov -24(%ebp) , %edx     /* Number of bytes to be written  */
-    mov $4 , %eax           /* Syscall 5 : write              */
+    mov %eax , %ebx           /* Output File descriptor number  */
+    mov -36(%ebp) , %ecx      /* Integer array address          */
+    mov -24(%ebp) , %edx      /* Number of bytes to be written  */
+    mov $4 , %eax             /* Syscall 5 : write              */
     int $0x80
    
     /* A file write to be successfull would eventually
@@ -216,12 +225,13 @@ main:
   
     /* Close the file that was open to be written in preceding call */
     mov -32(%ebp) , %ebx    /* File descriptor number */
-    mov $6 , %eax          /* 6 : close syscall */
+    mov $6 , %eax           /* 6 : close syscall */
     int $0x80
     
     jmp .endProgram
 
 .usageLabel:    
+    /* Write the usage message to STDOUT */
     push $usage_msg
     call strlen    
 
@@ -237,6 +247,7 @@ main:
     int $0x80
 
 .badFileOpening:    
+    /* Write the open failure of an input file message to STDOUT */
     push $bad_file_open_msg
     call strlen    
 
@@ -252,6 +263,8 @@ main:
     int $0x80
 
 .syscallStatFails:
+    /* any failure in stat syscall for getting properties
+       of a file would have a message to STDOUT */
     push $stat_syscall_msg
     call strlen    
 
@@ -267,6 +280,7 @@ main:
     int $0x80
 
 .readFileFail:
+    /* Failure in read of a file message to STDOUT */
     push $readfile_fail_msg
     call strlen    
 
@@ -296,6 +310,7 @@ main:
     int $0x80
 
 .writeFileFail:
+     /* Write the open failure of an output file message to STDOUT */
     push $writefile_fail_msg
     call strlen    
 
@@ -311,6 +326,7 @@ main:
     int $0x80
 
 .endProgram:
+    /* return 0 */
     mov $0 , %eax
     pop %ebx
     pop %ecx

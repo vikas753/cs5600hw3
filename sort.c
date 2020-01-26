@@ -1,4 +1,6 @@
-
+/*
+  C code for performing sorting technique . 
+ */
 #include <unistd.h>
 #include <stdio.h> // for perror
 #include <sys/types.h>
@@ -44,8 +46,6 @@ void insertionSort(int integer_array[] , int size)
     char* usage = "Invalid length of array  \n";
     int rv = write(STD_OUT_CODE , usage, strlen(usage));
     if (rv < 0) {
-        // Checking your syscall return values is a
-        // really good idea.
         perror("Insertion sort");
     }
     _exit(1);
@@ -54,7 +54,8 @@ void insertionSort(int integer_array[] , int size)
 }
 
 
-// Usage Write - Api code source : rewrote the code from notes of nat tuck	   
+// Usage Write - Api code source : rewrote the code from notes of nat tuck	// Generic code to perform a usage text message write to STDOUT using 
+// write syscall   
 int UsageWrite()
 {
     char* usage = "Usage: ./sort input output \n";
@@ -113,7 +114,7 @@ main(int argc, char* argv[])
        
       if(OutputFD)
       {
-	// Write the data using write syscall as below
+	// Write the output binary data using write syscall as below
         int resultWrite = write(OutputFD , (char*)&IntegerArray , size);
         if(resultWrite == -1)
         {
