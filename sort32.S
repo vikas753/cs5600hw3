@@ -15,6 +15,38 @@ badfile_open_write_msg :  .string "Output file failed to open\n"
 writefile_fail_msg     :  .string "File write failure\n"
 incorrect_size_text    :  .string "Incorrect size passed for insertion sort\n"
 
+
+/*
+Returns the number of charachters in a string
+variable mapping
+   ebx : Counter of number of charachters or bytes
+   eax : result
+   edi : base address of string pointer
+8(%ebp): First argument would be base address of string pointer
+*/
+strlen_prot:
+    enter $0 , $0
+    push %ebx
+    mov 8(%ebp) , %edi
+    mov $0 , %ebx
+/* Iterates over each charachter of string 
+   residing at %rdi and checks for termination
+   i.e 0 value . 
+*/
+.loopStrlen:
+    mov (%edi,%ebx,1) , %eax
+    inc %ebx
+    cmp $0 , %al
+    /* Compare a byte and loop again if it aint terminating */
+    jne .loopStrlen
+
+    dec %ebx
+    mov %ebx , %eax
+    pop %ebx
+    leave
+    ret
+ 
+
 /*
   8(%ebp)       : Number of integers
   4(%ebp)       : Integer array base ptr
@@ -69,7 +101,7 @@ insertion_sort:
     /* Check for size of array passed if less than 1 , then
        sorting technique wont work  */
     push $incorrect_size_text
-    call strlen
+    call strlen_prot
     
     mov %eax, %edx 
     mov $4, %eax   // syscall 4: write
@@ -233,7 +265,7 @@ main:
 .usageLabel:    
     /* Write the usage message to STDOUT */
     push $usage_msg
-    call strlen    
+    call strlen_prot    
 
     mov %eax, %edx  
    
@@ -249,7 +281,7 @@ main:
 .badFileOpening:    
     /* Write the open failure of an input file message to STDOUT */
     push $bad_file_open_msg
-    call strlen    
+    call strlen_prot    
 
     mov %eax, %edx  
    
@@ -266,7 +298,7 @@ main:
     /* any failure in stat syscall for getting properties
        of a file would have a message to STDOUT */
     push $stat_syscall_msg
-    call strlen    
+    call strlen_prot    
 
     mov %eax, %edx  
    
@@ -282,7 +314,7 @@ main:
 .readFileFail:
     /* Failure in read of a file message to STDOUT */
     push $readfile_fail_msg
-    call strlen    
+    call strlen_prot    
 
     mov %eax, %edx  
    
@@ -296,7 +328,7 @@ main:
     int $0x80
 .badFileOpenWrite:
     push $badfile_open_write_msg
-    call strlen    
+    call strlen_prot    
 
     mov %eax, %edx  
    
@@ -312,7 +344,7 @@ main:
 .writeFileFail:
      /* Write the open failure of an output file message to STDOUT */
     push $writefile_fail_msg
-    call strlen    
+    call strlen_prot    
 
     mov %eax, %edx  
    

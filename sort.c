@@ -8,6 +8,18 @@
 #include <fcntl.h>
 #include <stdlib.h>
 
+// Prototype for return length of a string
+// it is same as strlen but avoid using library
+// functions .
+int strlen_prot(char* stringData)
+{
+  int i=0;	
+  while(stringData[i] != '\0')
+  {
+    i++;	  
+  } 
+  return i;
+}
 
 /* Swap the pointer values of two number */
 void swap(int * a , int * b)
@@ -44,7 +56,7 @@ void insertionSort(int integer_array[] , int size)
   {
    // Api code source : rewrote the code from notes of nat tuck	  
     char* usage = "Invalid length of array  \n";
-    int rv = write(STD_OUT_CODE , usage, strlen(usage));
+    int rv = write(STD_OUT_CODE , usage, strlen_prot(usage));
     if (rv < 0) {
         perror(" Insertion sort fails with invalid array ");
     }
@@ -59,7 +71,7 @@ void insertionSort(int integer_array[] , int size)
 int UsageWrite()
 {
     char* usage = "Usage: ./sort input output \n";
-    int rv = write(STD_OUT_CODE , usage, strlen(usage));
+    int rv = write(STD_OUT_CODE , usage, strlen_prot(usage));
     if (rv < 0) {
         // Checking your syscall return values is a
         // really good idea.

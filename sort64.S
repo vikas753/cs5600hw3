@@ -9,6 +9,8 @@
 
     .global main
 
+  
+
 /* variable mapping for insertion sort
    rsi : size of array
    rdi : array location
@@ -20,6 +22,36 @@
 */
 
     .text
+
+/*
+Returns the number of charachters in a string
+variable mapping
+   rbx : Counter of number of charachters or bytes
+   rax : result
+   rdi : base address of string pointer
+*/
+strlen_prot:
+    enter $0 , $0
+    push %rbx
+    mov $0 , %rbx
+/* Iterates over each charachter of string 
+   residing at %rdi and checks for termination
+   i.e 0 value . 
+*/
+.loopStrlen:
+    mov (%rdi,%rbx,1) , %rax
+    inc %rbx
+    cmp $0 , %al
+    /* Compare a byte and loop again if it aint terminating */
+    jne .loopStrlen
+
+    dec %rbx
+    mov %rbx , %rax
+    pop %rbx
+    leave
+    ret
+   
+
 insertion_sort:
     enter $0 , $0
     /* Push all the below registers onto stack as 
@@ -63,7 +95,7 @@ insertion_sort:
     /* Check for size of array passed if less than 1 , then
        sorting technique wont work  */
     mov $incorrect_size_text , %rdi
-    call strlen
+    call strlen_prot
     
     mov $1 , %rdi
     mov $incorrect_size_text , %rsi
@@ -218,7 +250,7 @@ main:
 .usageLabel:
     /* Perform an usage text message to STDOUT */
     mov $usage_text , %rdi
-    call strlen
+    call strlen_prot
     
     mov $1 , %rdi
     mov $usage_text , %rsi
@@ -234,7 +266,7 @@ main:
 .badFileReadLabel:
     /* Perform a bad file read message to STDOUT */
     mov $badfile_read , %rdi
-    call strlen
+    call strlen_prot
     
     mov $1 , %rdi
     mov $badfile_read , %rsi
@@ -250,7 +282,7 @@ main:
 .incorrectFileProperties:
     /* Any failure in stat syscall message is routed to STDOUT */
     mov $stat_fail , %rdi
-    call strlen
+    call strlen_prot
     
     mov $1 , %rdi
     mov $stat_fail , %rsi
@@ -266,7 +298,7 @@ main:
 .badFileOpening:
     /* Perform a bad file open message to STDOUT */
     mov $bad_file , %rdi
-    call strlen
+    call strlen_prot
     
     mov $1 , %rdi
     mov $bad_file , %rsi
