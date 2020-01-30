@@ -46,7 +46,7 @@ void insertionSort(int integer_array[] , int size)
     char* usage = "Invalid length of array  \n";
     int rv = write(STD_OUT_CODE , usage, strlen(usage));
     if (rv < 0) {
-        perror("Insertion sort");
+        perror(" Insertion sort fails with invalid array ");
     }
     _exit(1);
      
@@ -63,7 +63,7 @@ int UsageWrite()
     if (rv < 0) {
         // Checking your syscall return values is a
         // really good idea.
-        perror("write in main");
+        perror("Write syscall for usage failure ");
     }
     _exit(1);
    
@@ -95,8 +95,6 @@ main(int argc, char* argv[])
       if(size == -1)
       {
         close(InputFD);     
-        printf(" InputFd : %ld\n " , InputFD);	
-        perror(" read result of InputFD , inputfd ");
         _exit(1);      
       }
 
@@ -120,10 +118,8 @@ main(int argc, char* argv[])
         {
           close(InputFD);
           close(OutputFD);	  
-          perror(" write result of OutputFD ");
           _exit(1);    
-	  close(InputFD);
-          close(OutputFD);	  
+
          
         }	
       }
